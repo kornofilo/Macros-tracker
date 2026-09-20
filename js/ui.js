@@ -4,6 +4,9 @@
 // ---------------------------------------------------------------------------
 import * as store from './store.js';
 import * as M from './model.js';
+import * as IMP from './importers.js';
+
+let importMsg = ''; // transient status shown in the Connect-health card
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -225,6 +228,8 @@ function trends() {
       ${weightChart}
     </div>
 
+    ${importedActivityCard(s)}
+
     <div class="card">
       <div class="cardhead"><h2>Strava · last 4 months</h2><span class="hint">seed data</span></div>
       <div class="statrow">
@@ -300,6 +305,8 @@ function program() {
       <div class="explain">Activity baseline was seeded from 4 months of Strava (${s.strava.totals.avgKcalPerCalendarDay} kcal/day avg). It only affects the estimate until the adaptive engine takes over.</div>
     </div>
 
+    ${connectHealthCard(s)}
+
     <div class="card">
       <div class="cardhead"><h2>Data & backup</h2></div>
       <div class="chips">
@@ -319,6 +326,60 @@ function program() {
 }
 
 const goalLabel = (g) => ({ recomp: 'Recomp', cut: 'Cut', maintain: 'Maintain', bulk: 'Lean bulk' }[g]);
+
+function connectHealthCard(s) {
+  const sum = IMP.summarize(s.importedActivities);
+  return `
+    <div class="card">
+      <div class="cardhead"><h2>Connect health data</h2><span class="hint">Google · Suunto · Apple</span></div>
+      <p class="explain" style="margin-top:0">Import an export from your watch or phone. A static app can't call Google
+      Health (the Fit API is retired; Health Connect has no web API) or the Suunto cloud API (needs a server), but those
+      platforms all let you <b>export files</b> — and Suunto/Garmin/Coros watches export the same <b>.fit</b> files.</p>
+      <label class="primary block" style="text-align:center;cursor:pointer">
+        Choose file(s)…
+        <input type="file" accept=".fit,.tcx,.csv,.xml" multiple data-act="import-health" style="display:none"/>
+      </label>
+      ${importMsg ? `<div class="hint" id="imp-msg" style="margin-top:8px">${importMsg}</div>` : ''}
+      ${sum ? `
+      <div class="statrow" style="margin-top:12px">
+        <div class="stat"><div class="statnum">${sum.count}</div><div class="statlbl">activities</div></div>
+        <div class="stat"><div class="statnum">${sum.avgPerCalendarDay}</div><div class="statlbl">kcal/day avg</div></div>
+        <div class="stat"><div class="statnum">${sum.days}</div><div class="statlbl">days span</div></div>
+      </div>
+      <div class="hint" style="margin-top:6px">Sources: ${Object.entries(sum.bySource).map(([k, v]) => `${esc(k)} (${v})`).join(', ')} · now driving your activity baseline.</div>
+      <div class="chips" style="margin-top:10px"><button class="chip danger" data-act="clear-imports">Clear imported data</button></div>` : ''}
+      <details style="margin-top:12px"><summary class="hint">How to export from each app</summary>
+        <div class="explain">
+          <b>Suunto:</b> Suunto app → a workout → ⋯ → Export → <b>FIT</b> (or GPX). Or just let Suunto auto-sync to
+          <b>Strava</b>, which this app already reads live.<br>
+          <b>Garmin/Coros/Wahoo:</b> export the activity as <b>.fit</b> or <b>.tcx</b>.<br>
+          <b>Google Fit:</b> <a href="https://takeout.google.com/" target="_blank" rel="noopener">takeout.google.com</a> →
+          Fit → the “Daily activity metrics” <b>.csv</b>.<br>
+          <b>Apple Health:</b> Health app → profile → Export All Health Data → unzip → <b>export.xml</b>.
+        </div>
+      </details>
+    </div>`;
+}
+
+function importedActivityCard(s) {
+  const sum = IMP.summarize(s.importedActivities);
+  if (!sum) return '';
+  const byDay = new Map();
+  for (const a of s.importedActivities) byDay.set(a.date, (byDay.get(a.date) || 0) + a.kcal);
+  const days = [...byDay.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(-21);
+  const chart = lineChart({ series: [{ points: days.map((d, i) => ({ x: i, y: d[1] })), color: 'var(--carb)', dots: true, area: true }] });
+  return `
+    <div class="card">
+      <div class="cardhead"><h2>Imported activity</h2><span class="hint">watch / phone export</span></div>
+      <div class="statrow">
+        <div class="stat"><div class="statnum">${sum.count}</div><div class="statlbl">activities</div></div>
+        <div class="stat"><div class="statnum">${sum.avgPerCalendarDay}</div><div class="statlbl">kcal/day avg</div></div>
+        <div class="stat"><div class="statnum">${(sum.totalKcal/1000).toFixed(1)}k</div><div class="statlbl">total kcal</div></div>
+      </div>
+      ${chart}
+      <div class="hint" style="margin-top:6px">${sum.start} → ${sum.end} · ${Object.keys(sum.bySource).join(', ')}</div>
+    </div>`;
+}
 
 // =========================================================================
 // Onboarding
@@ -402,6 +463,49 @@ function handleClick(e) {
   else if (act === 'finish-onb') finishOnboarding();
   else if (act === 'pick-lib') pickLib(btn.dataset.id);
   else if (act === 'save-food') saveFood();
+  else if (act === 'clear-imports') {
+    if (confirm('Remove all imported health data and revert the activity baseline to the Strava seed?')) {
+      store.update((st) => { st.importedActivities = []; st.program.activityKcalPerDay = st.strava.totals.avgKcalPerCalendarDay; });
+      importMsg = ''; render();
+    }
+  }
+}
+
+function handleChange(e) {
+  const el = e.target.closest('[data-act="import-health"]');
+  if (el && el.files && el.files.length) importHealthFiles(el.files);
+}
+
+async function importHealthFiles(fileList) {
+  importMsg = 'Reading…'; render();
+  const files = [...fileList];
+  let all = [];
+  const warnings = [];
+  for (const file of files) {
+    try {
+      const isFit = file.name.toLowerCase().endsWith('.fit');
+      const data = isFit ? await file.arrayBuffer() : await file.text();
+      const res = IMP.parseFile(file.name, data);
+      all = all.concat(res.activities);
+      res.warnings.forEach((w) => warnings.push(`${file.name}: ${w}`));
+    } catch (err) {
+      warnings.push(`${file.name}: ${err.message}`);
+    }
+  }
+  if (!all.length) {
+    importMsg = `⚠ No activity calories found. ${warnings.slice(0, 2).join(' ')}`.trim();
+    render();
+    return;
+  }
+  store.update((st) => {
+    st.importedActivities = IMP.mergeActivities(st.importedActivities, all);
+    const sum = IMP.summarize(st.importedActivities);
+    if (sum) st.program.activityKcalPerDay = sum.avgPerCalendarDay;
+  });
+  const sum = IMP.summarize(store.get().importedActivities);
+  importMsg = `✓ Imported ${all.length} activities. Activity baseline set to ${sum.avgPerCalendarDay} kcal/day.` +
+    (warnings.length ? ` (${warnings.length} file(s) skipped)` : '');
+  render();
 }
 
 function handleInput(e) {
@@ -531,6 +635,7 @@ export function init() {
   store.load();
   document.body.addEventListener('click', handleClick);
   document.body.addEventListener('input', handleInput);
+  document.body.addEventListener('change', handleChange);
   window.addEventListener('hashchange', () => { view = (location.hash || '#today').slice(1); render(); });
   render();
 }
