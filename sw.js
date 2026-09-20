@@ -1,5 +1,5 @@
 // Service worker: offline app shell. Bump CACHE to ship updates.
-const CACHE = 'macrotrack-v1';
+const CACHE = 'macrotrack-v2';
 const ASSETS = [
   './',
   'index.html',
@@ -9,6 +9,7 @@ const ASSETS = [
   'js/model.js',
   'js/store.js',
   'js/seed.js',
+  'js/importers.js',
   'manifest.webmanifest',
   'assets/icons/icon-192.png',
   'assets/icons/icon-512.png',

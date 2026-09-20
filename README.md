@@ -52,7 +52,30 @@ It then launches full-screen like a native app and works without a connection.
 - **Trends** — adaptive expenditure with confidence, weekly check-in, 21-day
   intake-vs-target chart, weight trend, and your Strava activity summary.
 - **Program** — goal presets (Recomp / Cut / Maintain / Lean bulk), adjustable
-  rate, protein g/kg and fat %, profile, and JSON export/import backup.
+  rate, protein g/kg and fat %, profile, **health-data import** (FIT / TCX / CSV
+  / Apple Health), and JSON export/import backup.
+
+## Connecting Google Health / Suunto / Apple Health
+
+Short version: a **static, no-backend web app cannot pull these live**, so the
+app imports **exported files** instead (Program → **Connect health data**). Why:
+
+| Source | Live sync from a hosted web page? | How to get data in |
+|---|---|---|
+| **Google Fit / Health** | ❌ Fit REST API is [being shut down (end of 2026)](https://sahha.ai/blog/google-fit-api-sunset-migration/) and Health Connect is an **on-device Android API with no web endpoint** | [Google Takeout](https://takeout.google.com/) → Fit → "Daily activity metrics" **.csv** |
+| **Suunto** | ❌ Cloud API is OAuth2 **authorization-code** with a server-side secret + registered app | Export a workout as **.fit** (or GPX); or let Suunto **auto-sync to Strava**, which this app already reads live |
+| **Garmin / Coros / Wahoo** | ❌ (same server-secret problem) | Export activity as **.fit** or **.tcx** |
+| **Apple Health** | ❌ (no web API at all) | Health app → Export All Health Data → unzip → **export.xml** |
+
+The importer parses **`.fit`** (binary — the same format Suunto's own API serves),
+**`.tcx`**, **`.csv`** (Takeout or generic `date,calories`), and Apple Health
+**`.xml`**, turns them into per-day activity calories, and uses the average to
+drive your **activity baseline**. Note the adaptive TDEE engine ultimately learns
+your *true* expenditure from weight-trend + intake regardless of source, so this
+mainly improves the day-one estimate.
+
+**The one live path:** point your watch (Suunto/Garmin/Coros) at **Strava** —
+the app already reads 4 months of it, updated as you train.
 
 ## Your data
 
@@ -91,14 +114,13 @@ Open that URL on your phone and **Add to Home Screen** to install it.
 
 ---
 
-## About the Strava & Google Fit data
+## About the Strava seed
 
-The activity baseline was pulled from the last ~4 months of **Strava** activity
-via its connector and baked into `js/seed.js`. **Google Fit** could not be
-included automatically — Google retired the Fit API (in favor of Health
-Connect) and no Fit connector was available in this environment. You can still
-fold in Google Fit numbers manually by adjusting the **Activity baseline** in
-the Program tab, or by relying on the adaptive engine, which captures all of
-your expenditure (Fit-tracked or not) from your weight-trend + intake data.
+The initial activity baseline was pulled from the last ~4 months of **Strava**
+activity via its connector and baked into `js/seed.js`. For Google Health,
+Suunto, Apple Health and other watches, see
+[Connecting Google Health / Suunto / Apple Health](#connecting-google-health--suunto--apple-health)
+above — those import from exported files because none can be synced live from a
+static web app.
 
 _Educational tool, not medical advice._

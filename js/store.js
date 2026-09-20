@@ -30,6 +30,7 @@ export function defaultState() {
     weights: [], // [{date:'YYYY-MM-DD', kg}]
     food: {}, // { 'YYYY-MM-DD': [entry] }  entry: {id,name,kcal,p,c,f,qty}
     foodsLibrary: [], // [{id,name,kcal,p,c,f}] reusable per-serving foods
+    importedActivities: [], // [{date,kcal,name,source}] from FIT/TCX/CSV/Apple Health imports
     settings: {
       units: 'metric',
       energyBalanceKcalPerKg: 7700,
@@ -67,6 +68,7 @@ function migrate(s) {
   s.weights = s.weights || [];
   s.food = s.food || {};
   s.foodsLibrary = s.foodsLibrary || [];
+  s.importedActivities = s.importedActivities || [];
   return s;
 }
 
