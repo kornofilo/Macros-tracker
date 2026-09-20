@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>MacroTrack</title>
+  <meta name="description" content="Adaptive macro tracker for body recomposition — learns your true energy expenditure from your weight trend and intake." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="assets/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MacroTrack" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand"><span class="dot"></span> MacroTrack</div>
+    <div class="tagline">recomp · adaptive TDEE</div>
+  </header>
+
+  <main id="app" class="app"></main>
+  <div id="modal-host"></div>
+
+  <nav class="tabbar">
+    <button class="tab on" data-v="today"><span class="ico">◎</span>Today</button>
+    <button class="tab" data-v="weight"><span class="ico">⚖</span>Weight</button>
+    <button class="tab" data-v="trends"><span class="ico">📈</span>Trends</button>
+    <button class="tab" data-v="program"><span class="ico">⚙</span>Program</button>
+  </nav>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
