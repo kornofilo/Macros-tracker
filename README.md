@@ -76,11 +76,18 @@ sw.js                 offline service worker
 manifest.webmanifest  PWA manifest
 ```
 
-## Enabling GitHub Pages
+## Enabling GitHub Pages (one time)
 
-Repo **Settings → Pages → Build and deployment → Deploy from a branch**, then
-pick this branch and `/ (root)`. The URL appears at the top of the Pages
-settings once it builds.
+1. Go to **Settings → Pages**.
+2. Under **Build and deployment → Source**, choose **Deploy from a branch**.
+3. Branch: **`claude/macro-tracker-app-rmprf9`**, folder: **`/ (root)`** → **Save**.
+4. Wait ~1 minute. Your app goes live at:
+
+   ```
+   https://kornofilo.github.io/Macros-tracker/
+   ```
+
+Open that URL on your phone and **Add to Home Screen** to install it.
 
 ---
 
